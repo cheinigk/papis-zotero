@@ -65,20 +65,25 @@ def serve(address, port):
     help='Wether to link the pdf files or copy them',
     default=None
 )
-def do_importer(from_bibtex, from_sql, outfolder, link):
+@click.option(
+    '--filesfolder',
+    help='Folder to look for relative attachment paths',
+    default=None
+)
+def do_importer(from_bibtex, from_sql, outfolder, link, filesfolder):
     """Import zotero libraries into papis libraries
     """
-    import papis_zotero.bibtex
-    import papis_zotero.sql
     if not os.path.exists(outfolder):
         os.makedirs(outfolder)
     if from_bibtex is not None:
+        import papis_zotero.bibtex
         papis_zotero.bibtex.add_from_bibtex(
             from_bibtex, outfolder, link
         )
     elif from_sql is not None:
+        import papis_zotero.sql
         papis_zotero.sql.add_from_sql(
-            from_sql, outfolder
+            from_sql, outfolder, filesfolder
         )
 
 

@@ -6,7 +6,6 @@ import sqlite3
 import yaml
 import os
 import shutil
-import glob
 import logging
 import re
 
@@ -125,8 +124,9 @@ def getCreators(connection, itemId):
     return creators
 
 
-def getFiles(connection, itemId, itemKey):
+def getFiles(connection, itemId, itemKey, filesfolder):
     global inputPath
+    mimeTypes = getTuple(includedAttachments.keys())
     itemAttachmentQuery = """
     SELECT
       items.key,
@@ -139,12 +139,9 @@ def getFiles(connection, itemId, itemKey):
       itemAttachments.parentItemID = {itemID} AND
       itemAttachments.contentType IN {mimeTypes} AND
       items.itemID = itemAttachments.itemID
-    """
-    mimeTypes = getTuple(includedAttachments.keys())
+    """.format(itemID=itemId, mimeTypes=mimeTypes)
     attachmentCursor = connection.cursor()
-    attachmentCursor.execute(
-        itemAttachmentQuery.format(itemID=itemId, mimeTypes=mimeTypes)
-    )
+    attachmentCursor.execute(itemAttachmentQuery)
     files = []
     for attachmentRow in attachmentCursor:
         key = attachmentRow[0]
@@ -154,13 +151,13 @@ def getFiles(connection, itemId, itemKey):
         try:
             # NOTE: a single file is assumed in the attachment's folder
             # to avoid using path, which may contain invalid characters
-            importPath = glob.glob(inputPath + "/storage/" + key + "/*.*")[0]
+            importPath = os.path.join(filesfolder, path.replace("attachments:", "", 1))
             extension = os.path.splitext(importPath)[1]
             localPath = os.path.join(
                 outputPath, itemKey, key + "." + extension
             )
             shutil.copyfile(importPath, localPath)
-            files.append(key + "." + extension)
+            files.append(path)
         except:
             print(
               "failed to export attachment {key}: {path} ({mime})".format(
@@ -184,9 +181,9 @@ def getTags(connection, itemId):
     WHERE
       itemTags.itemID = {itemID} AND
       tags.tagID = itemTags.tagID
-    """
+    """.format(itemID=itemId)
     tagCursor = connection.cursor()
-    tagCursor.execute(itemTagQuery.format(itemID=itemId))
+    tagCursor.execute(itemTagQuery)
     tags = ""
     for tagRow in tagCursor:
         if tags != "":
@@ -206,9 +203,9 @@ def getCollections(connection, itemId):
       WHERE
         collectionItems.itemID = {itemID} AND
         collections.collectionID = collectionItems.collectionID
-    """
+    """.format(itemID=itemId)
     collectionCursor = connection.cursor()
-    collectionCursor.execute(itemCollectionQuery.format(itemID=itemId))
+    collectionCursor.execute(itemCollectionQuery)
     collections = []
     for collectionRow in collectionCursor:
         collections.append(collectionRow[0])
@@ -219,7 +216,7 @@ def getCollections(connection, itemId):
 
 ###############################################################################
 
-def add_from_sql(input_path, output_path):
+def add_from_sql(input_path, output_path, filesfolder):
     """
 
     :param input_path: path to zotero SQLite database "zoter.sqlite" and
@@ -250,8 +247,9 @@ def add_from_sql(input_path, output_path):
         itemType.typeName NOT IN {excludedTypeTuple}
       ORDER BY
         item.itemID
-    """
-    cursor.execute(itemsCountQuery.format(excludedTypeTuple=excludedTypeTuple))
+    """.format(excludedTypeTuple=excludedTypeTuple)
+    cursor.execute(itemsCountQuery)
+    itemsCount = 0
     for row in cursor:
         itemsCount = row[0]
 
@@ -271,9 +269,9 @@ def add_from_sql(input_path, output_path):
         itemType.typeName NOT IN {excludedTypeTuple}
       ORDER BY
         item.itemID
-    """
+    """.format(excludedTypeTuple=excludedTypeTuple)
 
-    cursor.execute(itemsQuery.format(excludedTypeTuple=excludedTypeTuple))
+    cursor.execute(itemsQuery)
     currentItem = 0
     for row in cursor:
         currentItem += 1
@@ -311,7 +309,7 @@ def add_from_sql(input_path, output_path):
         item.update(getCreators(connection, itemId))
         item.update(getTags(connection, itemId))
         item.update(getCollections(connection, itemId))
-        item.update(getFiles(connection, itemId, itemKey))
+        item.update(getFiles(connection, itemId, itemKey, filesfolder))
 
         item.update({"ref": ref})
 
