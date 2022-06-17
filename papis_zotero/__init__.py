@@ -67,8 +67,9 @@ def serve(address, port):
 )
 @click.option(
     '--filesfolder',
-    help='Folder to look for relative attachment paths',
-    default=None
+    help='Folders to look for relative attachment paths',
+    multiple=True,
+    default=[os.path.curdir]
 )
 def do_importer(from_bibtex, from_sql, outfolder, link, filesfolder):
     """Import zotero libraries into papis libraries

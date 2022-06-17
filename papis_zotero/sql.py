@@ -146,22 +146,39 @@ def getFiles(connection, itemId, itemKey, filesfolder):
     for attachmentRow in attachmentCursor:
         key = attachmentRow[0]
         path = attachmentRow[1]
+
         mime = attachmentRow[2]
         # extension = includedAttachments[mime]
+        importPath = ""
+
         try:
             # NOTE: a single file is assumed in the attachment's folder
             # to avoid using path, which may contain invalid characters
-            importPath = os.path.join(filesfolder, path.replace("attachments:", "", 1))
-            extension = os.path.splitext(importPath)[1]
+            if path.startswith("attachments:"):
+                path = path.replace("attachments:", "")
+                for ff in filesfolder:
+                    importPath = os.path.join(ff, path)
+                    if os.path.exists(importPath):
+                        break
+            elif path.startswith("storage:"):
+                path = path.replace("storage:", "", 1)
+                importPath = os.path.join(inputPath, "storage", key, path)
             localPath = os.path.join(
-                outputPath, itemKey, key + "." + extension
+                outputPath, itemKey, os.path.basename(path)
             )
             shutil.copyfile(importPath, localPath)
             files.append(path)
-        except:
+        except shutil.SameFileError as err:
+            print("SameFileError error: {0}".format(err))
+            pass
+        except OSError as err:
+            print("OS error: {0}".format(err))
+            pass
+        except BaseException as err:
+            print("error: {0}".format(err))
             print(
               "failed to export attachment {key}: {path} ({mime})".format(
-                key=key, path=path, mime=mime
+                key=key, path=importPath, mime=mime
               )
             )
             pass
@@ -301,10 +318,12 @@ def add_from_sql(input_path, output_path, filesfolder):
             if matches:
                 ref = matches.group(1)
         logger.info("exporting under ref %s" % ref)
-        item = {"ref": ref, "type": itemType
-                , "created": dateAdded
-                , "modified": dateModified
-                , "modified.client": clientDateModified}
+        item = { "ref": ref
+               , "type": itemType
+               , "created": dateAdded
+               , "modified": dateModified
+               , "modified.client": clientDateModified
+               }
         item.update(fields)
         item.update(getCreators(connection, itemId))
         item.update(getTags(connection, itemId))
@@ -314,6 +333,6 @@ def add_from_sql(input_path, output_path, filesfolder):
         item.update({"ref": ref})
 
         with open(os.path.join(path, "info.yaml"), "w+") as itemFile:
-            yaml.dump(item, itemFile, default_flow_style=False)
+            yaml.dump(item, itemFile, default_flow_style=False, allow_unicode=True)
 
     logger.info("done")
