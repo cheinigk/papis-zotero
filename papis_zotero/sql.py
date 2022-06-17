@@ -167,7 +167,7 @@ def getFiles(connection, itemId, itemKey, filesfolder):
                 outputPath, itemKey, os.path.basename(path)
             )
             shutil.copyfile(importPath, localPath)
-            files.append(path)
+            files.append(os.path.basename(path))
         except shutil.SameFileError as err:
             print("SameFileError error: {0}".format(err))
             pass
